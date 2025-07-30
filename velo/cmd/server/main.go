@@ -5,10 +5,11 @@ import (
 	"net/http"
 
 	"github.com/espennoreng/learn-go-with-tests/velo"
+	"github.com/espennoreng/learn-go-with-tests/velo/internal/store"
 )
 
 func main() {
-	store := velo.NewInMemoryAppStore()
+	store := store.NewInMemoryAppStore()
 
 	server := velo.NewAppServer(store)
 
