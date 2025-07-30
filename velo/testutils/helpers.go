@@ -6,17 +6,19 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/espennoreng/learn-go-with-tests/velo"
 	"github.com/espennoreng/learn-go-with-tests/velo/models"
 )
 
 type StubAppStore struct {
 	mu    sync.RWMutex
 	Items []models.Item
+}
+
+func NewStubAppStore() *StubAppStore{
+	return &StubAppStore{}
 }
 
 func (s *StubAppStore) GetItem(id string) (models.Item, error) {
@@ -82,7 +84,19 @@ func (s *StubAppStore) UpdateItem(id string, updates map[string]any) (models.Ite
 	return models.Item{}, fmt.Errorf("item not found: %s", id)
 }
 
-// Helpers
+type ErrorStore struct {
+    models.AppStore
+    ShouldErrorOnGetItems bool
+}
+
+func (s *ErrorStore) GetItems() ([]models.Item, error) {
+    if s.ShouldErrorOnGetItems {
+        return nil, fmt.Errorf("forced error for testing")
+    }
+    return s.AppStore.GetItems()
+}
+
+
 
 func AssertStatus(t testing.TB, got, want int) {
 	t.Helper()
@@ -106,44 +120,8 @@ func AssertValidJSON(t testing.TB, body *bytes.Buffer, err error) {
 	}
 }
 
-// Helper functions
 
-func createTestItems() []models.Item {
-	now := time.Now()
-	return []models.Item{
-		{
-			ID:         "item-001",
-			Name:       "First Test Item",
-			ExternalID: "ext-001",
-			OrgID:      "org-123",
-			IsActive:   "true",
-			CreatedAt:  now,
-			CreatedBy:  "test-user",
-			DeletedAt:  "",
-		},
-		{
-			ID:         "item-002",
-			Name:       "Second Test Item",
-			ExternalID: "ext-002",
-			OrgID:      "org-123",
-			IsActive:   "true",
-			CreatedAt:  now,
-			CreatedBy:  "test-user",
-			DeletedAt:  "",
-		},
-	}
-}
-
-func SetupTestServer() *velo.AppServer {
-
-	store := &StubAppStore{
-		Items: createTestItems(),
-	}
-
-	return velo.NewAppServer(store)
-}
-
-func MakeRequest(t testing.TB, server *velo.AppServer, method, url string, body []byte) *httptest.ResponseRecorder {
+func MakeRequest(t testing.TB, server http.Handler, method, url string, body []byte) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var req *http.Request
@@ -178,40 +156,28 @@ func AssertItemsContain(t testing.TB, items []models.Item, expectedIDs ...string
 	}
 }
 
-type SpyAppStore struct {
-	StubAppStore
-	GetItemCalls    atomic.Int32
-	UpdateItemCalls atomic.Int32
-	mutex           sync.Mutex
-	UpdateLog       []string
-}
-
-func SetupSpyTestServer() (*SpyAppStore, *velo.AppServer) {
-	spy := &SpyAppStore{
-		StubAppStore: StubAppStore{
-			Items: createTestItems(),
+func CreateTestItems() []models.Item {
+	now := time.Now()
+	return []models.Item{
+		{
+			ID:         "item-001",
+			Name:       "First Test Item",
+			ExternalID: "ext-001",
+			OrgID:      "org-123",
+			IsActive:   "true",
+			CreatedAt:  now,
+			CreatedBy:  "test-user",
+			DeletedAt:  "",
 		},
-		UpdateLog: make([]string, 0),
+		{
+			ID:         "item-002",
+			Name:       "Second Test Item",
+			ExternalID: "ext-002",
+			OrgID:      "org-123",
+			IsActive:   "true",
+			CreatedAt:  now,
+			CreatedBy:  "test-user",
+			DeletedAt:  "",
+		},
 	}
-
-	return spy, velo.NewAppServer(spy)
-}
-
-func (s *SpyAppStore) GetItem(id string) (models.Item, error) {
-	s.GetItemCalls.Add(1)
-	return s.StubAppStore.GetItem(id)
-}
-
-func (s *SpyAppStore) UpdateItem(id string, updates map[string]any) (models.Item, error) {
-	s.UpdateItemCalls.Add(1)
-
-	s.mutex.Lock()
-	if name, ok := updates["Name"].(string); ok {
-		s.UpdateLog = append(s.UpdateLog, fmt.Sprintf("Updated %s name to %s", id, name))
-	} else {
-		s.UpdateLog = append(s.UpdateLog, fmt.Sprintf("Updated %s with %d fields", id, len(updates)))
-	}
-	s.mutex.Unlock()
-
-	return s.StubAppStore.UpdateItem(id, updates)
 }
