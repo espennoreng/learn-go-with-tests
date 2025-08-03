@@ -22,10 +22,13 @@ func TestInvalidRouting(t *testing.T) {
 		{"create item with empty body", http.MethodPost, "/items", nil, http.StatusBadRequest},
 		{"invalid method on /items", http.MethodPatch, "/items", nil, http.StatusMethodNotAllowed},		
 		{"invalid method on /organizations/{}", http.MethodPatch, "/organizations/{}", nil, http.StatusMethodNotAllowed},
+		{"invalid method on /organizations/something/something/something", http.MethodPatch, "/organizations/something/something/something", nil, http.StatusMethodNotAllowed},
 		{"invalid method on /users", http.MethodPatch, "/users", nil, http.StatusMethodNotAllowed},
 		{"invalid method on /items/{}", http.MethodPost, "/items/item-001", nil, http.StatusMethodNotAllowed},
 		{"invalid method on /users/{}", http.MethodDelete, "/users/random-id", nil, http.StatusMethodNotAllowed},
+		{"invalid method on /users/something/something", http.MethodDelete, "/users/something/something", nil, http.StatusMethodNotAllowed},
 		{"invalid method on sessions", http.MethodPatch, "/sessions/session-001", nil, http.StatusMethodNotAllowed},
+		{"invalid method on /sessions/something/something", http.MethodGet, "/sessions/something/something", nil, http.StatusMethodNotAllowed},
 		{"invalid path", http.MethodGet, "/unknown", nil, http.StatusNotFound},
 	}
 

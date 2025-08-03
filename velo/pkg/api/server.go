@@ -34,12 +34,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.HasPrefix(path, "/sessions/"){
-		h.handleSessions(w, r)
+		h.handleSessionRoutes(w, r)
 		return
 	}
 
 	if strings.HasPrefix(path, "/users/"){
-		h.handleUser(w, r)
+		h.handleUserRoutes(w, r)
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.HasPrefix(path, "/organizations/"){
-		h.handleOrganization(w, r)
+		h.handleOrganizationRoutes(w, r)
 		return
 	}
 
@@ -57,18 +57,24 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 }
 
-func (h *Handler) handleOrganization(w http.ResponseWriter, r *http.Request){
-	switch r.Method {
-	case http.MethodGet:
-		h.getOrganization(w, r)
-	default:
+func (h *Handler) handleOrganizationRoutes(w http.ResponseWriter, r *http.Request){
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	orgID := parts[1]
+
+	if len(parts) == 2{
+		// e.g., /organizations/{id}
+		switch r.Method {
+			case http.MethodGet:
+				h.getOrganization(w, r, orgID)
+			default:
+				w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	} else{
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
-func (h *Handler) getOrganization(w http.ResponseWriter, r *http.Request){
-	id := strings.TrimPrefix(r.URL.Path, "/organizations/")
-
+func (h *Handler) getOrganization(w http.ResponseWriter, r *http.Request, id string){
 	org, err := h.store.GetOrganization(id)
 
 	if err != nil {
@@ -119,18 +125,24 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", fmt.Sprintf("/users/%s", createdUser.ID))
 	respondWithJSON(w, http.StatusCreated, createdUser)
-
 }
 
-func (h *Handler) handleUser(w http.ResponseWriter, r *http.Request){
-	id := strings.TrimPrefix(r.URL.Path, "/users/")
+func (h *Handler) handleUserRoutes(w http.ResponseWriter, r *http.Request){
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	userID := parts[1]
 
-	switch r.Method{
-	case http.MethodGet:
-		h.getUser(w, id)
-	default:
+	if len(parts) == 2 {
+		// e.g., /users/{id}
+		switch r.Method{
+			case http.MethodGet:
+				h.getUser(w, userID)
+			default:
+				w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+	
 }
 
 func (h *Handler) getUser(w http.ResponseWriter, id string){
@@ -258,13 +270,19 @@ func (h *Handler) createItem(w http.ResponseWriter, r *http.Request){
 
 
 // handleSessions processes requests for sessions
-func (h *Handler) handleSessions(w http.ResponseWriter, r *http.Request){
-	id := strings.TrimPrefix(r.URL.Path, "/sessions/")
+func (h *Handler) handleSessionRoutes(w http.ResponseWriter, r *http.Request){
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	sessionID := parts[1]
 
-	switch r.Method{
-	case http.MethodGet:
-		h.getSession(w, id)
-	default:
+	if len(parts) == 2 {
+		// e.g., /sessions/{id}
+		switch r.Method{
+			case http.MethodGet:
+				h.getSession(w, sessionID)
+			default:
+				w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
