@@ -452,4 +452,43 @@ func TestOrganizationsHandler(t *testing.T){
 
 		testutils.AssertStatus(t, response.Code, http.StatusNotFound)
 	})
+
+	t.Run("GET /organizations returns only organizations for authenticated user", func(t *testing.T) {
+		store := testutils.NewStubAppStore()
+
+		user, err := store.CreateUser(models.CreateUserInput{Name: "Espen"})
+		if err != nil {
+			t.Fatalf("could not create user %q, %s", "Espen", err)
+		}
+
+		org1, _ := store.CreateOrganization(models.CreateOrganizationInput{Name: "Org A"})
+		org2, _ := store.CreateOrganization(models.CreateOrganizationInput{Name: "Org B"})
+		store.CreateOrganization(models.CreateOrganizationInput{Name: "Org C"})
+		
+		err = store.AddUserToOrganization(user.ID, org1.ID)
+		if err != nil {
+			t.Fatalf("could not add user %q to org %q, %s", user.ID, org1.ID, err)
+		}
+		
+		err = store.AddUserToOrganization(user.ID, org2.ID)
+		if err != nil {
+			t.Fatalf("could not add user %q to org %q, %s", user.ID, org2.ID, err)
+		}
+
+		handler := api.NewHandlerWithUserID(store, user.ID)
+
+		response := testutils.MakeRequest(t, handler, http.MethodGet, "/organizations", nil)
+
+		testutils.AssertStatus(t, response.Code, http.StatusOK)
+
+		var receivedOrgs []models.Organization
+		json.NewDecoder(response.Body).Decode(&receivedOrgs)
+
+		if len(receivedOrgs) != 2 {
+			t.Fatalf("expected 2 organizations, but got %d", len(receivedOrgs))
+		}
+
+		testutils.AssertContainsIDs(t, receivedOrgs, org1.ID, org2.ID)
+
+	})
 }

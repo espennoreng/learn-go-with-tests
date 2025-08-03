@@ -11,13 +11,19 @@ import (
 
 // Handler manages the API endpoints
 type Handler struct {
-	store models.AppStore
+	store  models.AppStore
+	userID string
 }
 
 func NewHandler(store models.AppStore) *Handler {
 	return &Handler{store: store}
 }
 
+func NewHandlerWithUserID(store models.AppStore, userID string) *Handler {
+	return &Handler{store: store, userID: userID}
+}
+
+// TODO: Switch to another router like mux
 // ServeHTTP handles all API requests
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Route to the appropriate handler based on the path
@@ -33,23 +39,28 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.HasPrefix(path, "/sessions/"){
+	if strings.HasPrefix(path, "/sessions/") {
 		h.handleSessionRoutes(w, r)
 		return
 	}
 
-	if strings.HasPrefix(path, "/users/"){
+	if strings.HasPrefix(path, "/users/") {
 		h.handleUserRoutes(w, r)
 		return
 	}
 
-	if strings.HasPrefix(path, "/users"){ 
+	if strings.HasPrefix(path, "/users") {
 		h.handleUsers(w, r)
 		return
 	}
 
-	if strings.HasPrefix(path, "/organizations/"){
+	if strings.HasPrefix(path, "/organizations/") {
 		h.handleOrganizationRoutes(w, r)
+		return
+	}
+
+	if strings.HasPrefix(path, "/organizations"){
+		h.handleOrganizations(w, r)
 		return
 	}
 
@@ -57,24 +68,42 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 }
 
-func (h *Handler) handleOrganizationRoutes(w http.ResponseWriter, r *http.Request){
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	orgID := parts[1]
-
-	if len(parts) == 2{
-		// e.g., /organizations/{id}
-		switch r.Method {
-			case http.MethodGet:
-				h.getOrganization(w, r, orgID)
-			default:
-				w.WriteHeader(http.StatusMethodNotAllowed)
-		}
-	} else{
+func (h *Handler) handleOrganizations(w http.ResponseWriter, r *http.Request){
+	switch r.Method {
+	case http.MethodGet:
+		h.getOrganizations(w)
+	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
-func (h *Handler) getOrganization(w http.ResponseWriter, r *http.Request, id string){
+func (h *Handler) getOrganizations(w http.ResponseWriter){
+	orgs, err := h.store.GetOrganizations(h.userID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	respondWithJSON(w, http.StatusOK, orgs)
+}
+
+
+func (h *Handler) handleOrganizationRoutes(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	orgID := parts[1]
+
+	if len(parts) == 2 {
+		// e.g., /organizations/{id}
+		switch r.Method {
+		case http.MethodGet:
+			h.getOrganization(w, r, orgID)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	} else {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *Handler) getOrganization(w http.ResponseWriter, r *http.Request, id string) {
 	org, err := h.store.GetOrganization(id)
 
 	if err != nil {
@@ -85,10 +114,10 @@ func (h *Handler) getOrganization(w http.ResponseWriter, r *http.Request, id str
 	respondWithJSON(w, http.StatusOK, org)
 }
 
-func (h *Handler) handleUsers(w http.ResponseWriter, r *http.Request){
-	switch r.Method{
+func (h *Handler) handleUsers(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
 	case http.MethodPost:
-		 h.createUser(w, r)
+		h.createUser(w, r)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -127,25 +156,25 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, createdUser)
 }
 
-func (h *Handler) handleUserRoutes(w http.ResponseWriter, r *http.Request){
+func (h *Handler) handleUserRoutes(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	userID := parts[1]
 
 	if len(parts) == 2 {
 		// e.g., /users/{id}
-		switch r.Method{
-			case http.MethodGet:
-				h.getUser(w, userID)
-			default:
-				w.WriteHeader(http.StatusMethodNotAllowed)
+		switch r.Method {
+		case http.MethodGet:
+			h.getUser(w, userID)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
-	
+
 }
 
-func (h *Handler) getUser(w http.ResponseWriter, id string){
+func (h *Handler) getUser(w http.ResponseWriter, id string) {
 	user, err := h.store.GetUser(id)
 
 	if err != nil {
@@ -235,7 +264,7 @@ func (h *Handler) getItems(w http.ResponseWriter) {
 }
 
 // createItem creates a item
-func (h *Handler) createItem(w http.ResponseWriter, r *http.Request){
+func (h *Handler) createItem(w http.ResponseWriter, r *http.Request) {
 	if r.Body == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -268,27 +297,26 @@ func (h *Handler) createItem(w http.ResponseWriter, r *http.Request){
 
 }
 
-
 // handleSessions processes requests for sessions
-func (h *Handler) handleSessionRoutes(w http.ResponseWriter, r *http.Request){
+func (h *Handler) handleSessionRoutes(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	sessionID := parts[1]
 
 	if len(parts) == 2 {
 		// e.g., /sessions/{id}
-		switch r.Method{
-			case http.MethodGet:
-				h.getSession(w, sessionID)
-			default:
-				w.WriteHeader(http.StatusMethodNotAllowed)
+		switch r.Method {
+		case http.MethodGet:
+			h.getSession(w, sessionID)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
-func (h *Handler) getSession(w http.ResponseWriter, id string){
-	
+func (h *Handler) getSession(w http.ResponseWriter, id string) {
+
 	session, err := h.store.GetSession(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -296,8 +324,6 @@ func (h *Handler) getSession(w http.ResponseWriter, id string){
 	}
 	respondWithJSON(w, http.StatusOK, session)
 }
-
-
 
 // respondWithJSON sends a JSON response with the given status code
 func respondWithJSON(w http.ResponseWriter, status int, data any) {
