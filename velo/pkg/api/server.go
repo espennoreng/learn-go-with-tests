@@ -48,8 +48,35 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.HasPrefix(path, "/organizations/"){
+		h.handleOrganization(w, r)
+		return
+	}
+
 	// Handle unknown paths
 	w.WriteHeader(http.StatusNotFound)
+}
+
+func (h *Handler) handleOrganization(w http.ResponseWriter, r *http.Request){
+	switch r.Method {
+	case http.MethodGet:
+		h.getOrganization(w, r)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *Handler) getOrganization(w http.ResponseWriter, r *http.Request){
+	id := strings.TrimPrefix(r.URL.Path, "/organizations/")
+
+	org, err := h.store.GetOrganization(id)
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, org)
 }
 
 func (h *Handler) handleUsers(w http.ResponseWriter, r *http.Request){

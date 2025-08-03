@@ -21,6 +21,7 @@ func TestInvalidRouting(t *testing.T) {
 	}{
 		{"create item with empty body", http.MethodPost, "/items", nil, http.StatusBadRequest},
 		{"invalid method on /items", http.MethodPatch, "/items", nil, http.StatusMethodNotAllowed},		
+		{"invalid method on /organizations/{}", http.MethodPatch, "/organizations/{}", nil, http.StatusMethodNotAllowed},
 		{"invalid method on /users", http.MethodPatch, "/users", nil, http.StatusMethodNotAllowed},
 		{"invalid method on /items/{}", http.MethodPost, "/items/item-001", nil, http.StatusMethodNotAllowed},
 		{"invalid method on /users/{}", http.MethodDelete, "/users/random-id", nil, http.StatusMethodNotAllowed},
@@ -420,5 +421,32 @@ func TestUsersHandler(t *testing.T){
 		createResponse := testutils.MakeRequest(t, handler, http.MethodPost, "/users", nil)
 
 		testutils.AssertStatus(t, createResponse.Code, http.StatusBadRequest)
+	})
+}
+
+func TestOrganizationsHandler(t *testing.T){
+	t.Run("GET /organizations/{id}", func(t *testing.T) {
+		store := testutils.NewStubAppStoreWithData()
+		handler := api.NewHandler(store)
+
+		orgID := "org-001"
+		response := testutils.MakeRequest(t, handler, http.MethodGet, fmt.Sprintf("/organizations/%s", orgID), nil)
+
+		testutils.AssertStatus(t, response.Code, http.StatusOK)
+
+		var receivedOrg models.Organization
+		json.NewDecoder(response.Body).Decode(&receivedOrg)
+
+		testutils.AssertContainsID(t, receivedOrg, orgID)
+	})
+
+	t.Run("GET /organizations/{not-existing id}", func(t *testing.T) {
+		store := testutils.NewStubAppStoreWithData()
+		handler := api.NewHandler(store)
+
+		orgID := "does-not-exist"
+		response := testutils.MakeRequest(t, handler, http.MethodGet, fmt.Sprintf("/organizations/%s", orgID), nil)
+
+		testutils.AssertStatus(t, response.Code, http.StatusNotFound)
 	})
 }
